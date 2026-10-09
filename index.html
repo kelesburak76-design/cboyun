@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cumhurbaşkanı Simülasyonu</title>
+    <style>
+        * { box-sizing: border-box; touch-action: manipulation; }
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            overflow: hidden;
+        }
+        .container {
+            width: 100%;
+            max-width: 380px;
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            text-align: center;
+            border: 1px solid #333;
+            position: relative;
+        }
+        h2 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            color: #e53935;
+            letter-spacing: 0.5px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .stat-box {
+            background: #2a2a2a;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            border: 1px solid #444;
+        }
+        
+        .card-container {
+            position: relative;
+            width: 100%;
+            height: 340px;
+            margin-bottom: 15px;
+            perspective: 1000px;
+        }
+        .card {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #282828;
+            border-radius: 16px;
+            border: 1px solid #444;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.1s ease, opacity 0.2s ease;
+        }
+        .card:active { cursor: grabbing; }
+        
+        .avatar {
+            width: 125px;
+            height: 125px;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            background-color: #333;
+            border: 3px solid #ffca28;
+            margin-top: 5px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .danisman {
+            font-size: 12px;
+            color: #ffca28;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+        .soru-metni {
+            font-size: 14px;
+            line-height: 1.4;
+            margin-bottom: 10px;
+        }
+
+        .badge {
+            position: absolute;
+            top: 20px;
+            font-weight: bold;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.1s ease;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .badge-yes { right: 20px; background: #2e7d32; color: white; border: 1px solid #81c784; }
+        .badge-no { left: 20px; background: #c62828; color: white; border: 1px solid #e57373; }
+
+        .hint-text {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .btn-restart {
+            background-color: #1976d2;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🇹🇷 TÜRKİYE CB SİMÜLASYONU</h2>
+    
+    <div class="stats">
+        <div class="stat-box">👥 Halk: <span id="halk">50</span>%</div>
+        <div class="stat-box">💰 Ekonomi: <span id="ekonomi">50</span>%</div>
+        <div class="stat-box">🛡️ Ordu: <span id="ordu">50</span>%</div>
+        <div class="stat-box">🌐 Dış İlişkiler: <span id="dis">50</span>%</div>
+    </div>
+
+    <div class="card-container">
+        <div class="badge badge-no" id="badge-no">❌ REDDET</div>
+        <div class="badge badge-yes" id="badge-yes">✅ KABUL ET</div>
+        
+        <div class="card" id="card">
+            <div class="avatar" id="avatar"></div>
+            <div class="danisman" id="danisman">GÖREV BAŞI</div>
+            <div class="soru-metni" id="soru">Oyun Yükleniyor...</div>
+        </div>
+    </div>
+
+    <div class="hint-text" id="hint">👈 Sola Kaydır (Red) | Sağa Kaydır (Kabul) 👉</div>
+    <button class="btn-restart" id="restart-btn" onclick="oyunuYenidenBaslat()">TEKRAR OYNA</button>
+</div>
+
+<script>
+    let halk, ekonomi, ordu, dis, mevcutSoruIndex;
+
+    const sorular = [
+        {
+            danisman: "🇺🇸 ABD Başkanı",
+            resim: "https://api.dicebear.com/7.x/avataaars/svg?seed=USABaskan&style=circle&clothing=suitAndTie&hairColor=blonde",
+            soru: "Beyaz Saray'da çalışma yemeğine davetlisin. Devasa bir Serbest Ticaret Anlaşması imzalayalım mı?",
+            evet: { halk: -8, ekonomi: +20, ordu: 0, dis: +10 },
+            hayir: { halk: +10, ekonomi: -10, ordu: 0, dis: -15 }
+        },
+        {
+            danisman: "🇷🇺 Rusya Devlet Başkanı",
+            resim: "https://api.dicebear.com/7.x/avataaars/svg?seed=Putin&style=circle&clothing=suitAndTie&hairColor=grey",
+            soru: "KREMLİN'de baş başa akşam yemeği. Yeni bir nükleer santral ve doğalgaz indirim paketini onaylıyor musun?",
+            evet: { halk: +5, ekonomi: +15, ordu: 0, dis: -15 },
+            hayir: { halk: -5, ekonomi: -12, ordu: 0, dis: +10 }
+        },
+        {
+            danisman: "🛡️ NATO Genel Sekreteri",
+            resim: "https://api.dicebear.com/7.x/avataaars/svg?seed=Nato&style=circle&clothing=suitAndTie&accessories=glasses",
+            soru: "NATO Zirvesi'nde çalışma yemeğindesiniz. Doğu Avrupa'ya ek Türk füze savunma bataryaları konuşlandıralım mı?",
+            evet: { halk: -5, ekonomi: -8, ordu: +15, dis: +12 },
+            hayir: { halk: +5, ekonomi: 0, ordu: -8, dis: -10 }
+        },
+        {
+            danisman: "🇺🇳 Birleşmiş Milletler Genel Sekreteri",
+            resim: "https://api.dicebear.com/7.x/avataaars/svg?seed=BMGrup&style=circle&clothing=suitAndTie",
+            soru: "BM Genel Kurulu'nda 'Dünya 5'ten Büyüktür' konuşması yapıp küresel reform talep edecek misiniz?",
+            evet: { halk: +15, ekonomi: 0, ordu: 0, dis: -12 },
+            hayir: { halk: -10, ekonomi: 0, ordu: 0, dis: +8 }
+        },
+        {
+            danisman: "🇨🇳 Çin Devlet Başkanı",
+            resim: "https://api.dicebear.com/7.x/avataaars/svg?seed=ChinaLider&style=circle&clothing=suitAndTie&hairColor=black",
+            soru: "Pekin'de 'Tarihi İpek Yolu' akşam yemeği. Çin'den 20 Milyar Dolar altyapı yatırımı kabul edilsin mi?",
+            evet: { halk: -10, ekonomi: +22, ordu: 0, dis: -10 },
+            hayir: { halk: +8, ekonomi: -15, ordu: 0, dis: +8 }
+        },
+        {
+            danisman: "🇪🇺 AB Komisyonu Başkanı",
+            resim: "https://api.dicebear.com/7.x/avataaars/svg?seed=ABKomisyon&style=circle&clothing=suitAndTie&top=shortWaved",
+            soru: "Brüksel'deki gala yemeğinde teklif geldi: Gümrük Birliği revizesi karşılığında Vize Serbestisi başlatılsın mı?",
+            evet: { halk: +18, ekonomi: +10, ordu: 0, dis: +10 },
+            hayir: { halk: -12, ekonomi: -8, ordu: 0, dis: -8 }
+        },
+        {
+            danisman: "👔 Hazine ve Maliye Bakanı",
+            resim: "https://api.dicebear.com/7.x/avataaars/svg?seed=Maliye&style=circle&clothing=suitAndTie",
+            soru: "Enflasyonla mücadele için kredi kartı taksitlerini tamamen kaldıralım mı?",
+            evet: { halk: -15, ekonomi: +12, ordu: 0, dis: +2 },
+            hayir: { halk: +10, ekonomi: -10, ordu: 0, dis: 0 }
+        },
+        {
+            danisman: "🪖 Genelkurmay Başkanı",
+            resim: "https://api.dicebear.com/7.x/avataaars/svg?seed=Ordu&style=circle&facialHair=moustacheMagnum&hairColor=grey",
+            soru: "Bedelli askerlik ücretine %100 zam yapıp elde edilen geliri savunma sanayine aktaralım mı?",
+            evet: { halk: -10, ekonomi: +10, ordu: +12, dis: 0 },
+            hayir: { halk: +8, ekonomi: -8, ordu: -5, dis: 0 }
+        }
+    ];
+
+    function oyunuYenidenBaslat() {
+        halk = 50; ekonomi = 50; ordu = 50; dis = 50;
+        mevcutSoruIndex = 0;
+        sorulariKaristir(sorular);
+
+        document.getElementById("restart-btn").style.display = "none";
+        document.getElementById("hint").style.display = "block";
+        document.getElementById("card").style.display = "flex";
+        ekraniGuncelle();
+    }
+
+    function sorulariKaristir(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    function ekraniGuncelle() {
+        document.getElementById("halk").innerText = halk;
+        document.getElementById("ekonomi").innerText = ekonomi;
+        document.getElementById("ordu").innerText = ordu;
+        document.getElementById("dis").innerText = dis;
+
+        if(halk <= 0 || ekonomi <= 0 || ordu <= 0 || dis <= 0) {
+            oyunBitti("🚨 İktidardan Düştünüz! Görev süreniz sona erdi.");
+            return;
+        }
+
+        if (mevcutSoruIndex < sorular.length) {
+            let s = sorular[mevcutSoruIndex];
+            document.getElementById("danisman").innerText = s.danisman;
+            document.getElementById("soru").innerText = s.soru;
+            document.getElementById("avatar").style.backgroundImage = `url('${s.resim}')`;
+            
+            resetCardPosition();
+        } else {
+            oyunBitti("🎉 Tebrikler! Tüm kararları başarıyla yönetip döneminizi tamamladınız!");
+        }
+    }
+
+    function oyunBitti(mesaj) {
+        document.getElementById("card").style.display = "none";
+        document.getElementById("hint").style.display = "none";
+        document.getElementById("restart-btn").style.display = "block";
+        alert(mesaj);
+    }
+
+    function karar(secim) {
+        let etki = sorular[mevcutSoruIndex][secim];
+        halk += etki.halk;
+        ekonomi += etki.ekonomi;
+        ordu += etki.ordu;
+        dis += etki.dis;
+
+        mevcutSoruIndex++;
+        ekraniGuncelle();
+    }
+
+    const card = document.getElementById('card');
+    const badgeYes = document.getElementById('badge-yes');
+    const badgeNo = document.getElementById('badge-no');
+    let isDragging = false;
+    let startX = 0, currentX = 0;
+
+    function resetCardPosition() {
+        card.style.transform = 'translate(0px, 0px) rotate(0deg)';
+        badgeYes.style.opacity = 0;
+        badgeNo.style.opacity = 0;
+    }
+
+    function startDrag(x) {
+        isDragging = true;
+        startX = x;
+    }
+
+    function moveDrag(x) {
+        if (!isDragging) return;
+        currentX = x - startX;
+        let rotate = currentX * 0.08;
+        card.style.transform = `translate(${currentX}px, 0px) rotate(${rotate}deg)`;
+
+        if (currentX > 40) {
+            badgeYes.style.opacity = Math.min((currentX - 40) / 50, 1);
+            badgeNo.style.opacity = 0;
+        } else if (currentX < -40) {
+            badgeNo.style.opacity = Math.min((-currentX - 40) / 50, 1);
+            badgeYes.style.opacity = 0;
+        } else {
+            badgeYes.style.opacity = 0;
+            badgeNo.style.opacity = 0;
+        }
+    }
+
+    function endDrag() {
+        if (!isDragging) return;
+        isDragging = false;
+
+        if (currentX > 100) {
+            karar('evet');
+        } else if (currentX < -100) {
+            karar('hayir');
+        } else {
+            resetCardPosition();
+        }
+    }
+
+    card.addEventListener('mousedown', (e) => startDrag(e.clientX));
+    window.addEventListener('mousemove', (e) => moveDrag(e.clientX));
+    window.addEventListener('mouseup', endDrag);
+
+    card.addEventListener('touchstart', (e) => startDrag(e.touches[0].clientX));
+    window.addEventListener('touchmove', (e) => moveDrag(e.touches[0].clientX));
+    window.addEventListener('touchend', endDrag);
+
+    oyunuYenidenBaslat();
+</script>
+
+</body>
+</html>
